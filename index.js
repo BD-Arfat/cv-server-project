@@ -4,6 +4,7 @@ const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000;
 const jwt = require('jsonwebtoken');
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 app.get("/", (req, res) => {
     res.send("hi hello")
@@ -109,6 +110,26 @@ const run = async () => {
             }
             const result = await userCollection.updateOne(filter, updateDoc, option)
             res.send(result)
+        });
+
+        // app.get('/addPrice', async (req, res) => {
+        //     const filter = {};
+        //     const option = { upsert: true }
+        //     const updateDoc = {
+        //         $set: {
+        //             price: 99
+        //         }
+        //     }
+        //     const result = await appointmentCollection.updateMany(filter, updateDoc, option);
+        //     res.send(result)
+        // })
+
+        // get payment 
+        app.get('/bookingTreatment/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const booking = await bookingTreatmentCollection.findOne(query);
+            res.send(booking)
         })
 
         app.get('/bookingTreatment', verifyJwt, async (req, res) => {
@@ -121,6 +142,24 @@ const run = async () => {
             const booking = await bookingTreatmentCollection.find(query).toArray();
             res.send(booking);
         });
+
+        app.post('/create-payment-intent', async (req, res) => {
+            const booking = req.body;
+            const price = booking.price;
+            const amount = price * 100;
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                currency: 'usd',
+                amount: amount,
+                "payment_method_types": [
+                    "card"
+                ],
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+              });
+
+        })
 
         // jwt token
         app.get('/jwt', async (req, res) => {
